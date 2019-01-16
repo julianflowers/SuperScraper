@@ -1,5 +1,5 @@
 if (!require("pacman")) install.packages("pacman")
-pacman::p_load(rvest, purrr, dplyr, radarchart, tidyr)
+pacman::p_load(rvest, purrr, dplyr)
 
 #########List of retailers###############
 stores <-
@@ -147,18 +147,5 @@ TidyPrices <-
   )
 
 write.csv(TidyPrices, row.names = FALSE, file = paste(Sys.Date(), "mysupermarket.csv", sep = " "))
-
-
-# ##########Create summary plot###########
-# 
-# TidyPrices %>%
-#   filter(Unit=="Kg")%>%
-#   group_by(Category,Retailer)%>%
-#   summarise(Mean_Price_per_KG = mean(Price_per_unit))%>%
-#                spread(Retailer,Mean_Price_per_KG)%>%
-#   chartJSRadar(main="Average price (£/kg) for fresh food by retailer where supply chain has been identified as potentially vulnerable to disruption")
-#              
-
-
 
 
