@@ -77,23 +77,47 @@ names(URLs) <- prods
 ############Function for scraping prices from mysupermarket.co.uk
 
 Scrape_all<-function(URL_list){
-
-products <-
-  map(URL_list,  ~ html_text(html_nodes(read_html(.x), ".Prefix")))
-prices <- map(URL_list,  ~ html_text(html_nodes(read_html(.x), ".Price")))
-price_per_unit <-
-  map(URL_list,  ~ html_text(html_nodes(read_html(.x), "#PPU")))
-
-out<-data.frame(product=stack(products)$values[stack(products)$values!=""],
-                store=as.character(stack(products)$ind)[stack(products)$values!=""],
-                price=stack(prices)$values,
-                price_per_unit=stack(price_per_unit)$values)
-return(out)
+  
+  Product_ID<-map(URL_list,  ~ html_attr(html_nodes(read_html(.x), "#ProductImage"),"src"))
+  Product_ID<-stack(Product_ID)$values[!is.na(stack(Product_ID)$values)]
+  Product_ID<-do.call(rbind,strsplit(do.call(rbind,strsplit(Product_ID,"/"))[,7],".jpg"))[,1]
+  
+  Full_Name<-map(URL_list,  ~ html_attr(html_nodes(read_html(.x), "#ProductImage"),"alt"))
+  Full_Name<-stack(Full_Name)$values[!is.na(stack(Full_Name)$values)]
+  
+  store_and_product <-
+    map(URL_list,  ~ html_text(html_nodes(read_html(.x), ".Prefix")))
+  
+  
+  store<- as.character(stack(store_and_product)$ind)[stack(store_and_product)$values!=""]
+  
+  product<- stack(store_and_product)$values[stack(store_and_product)$values!=""]
+  
+  price <- map(URL_list,  ~ html_text(html_nodes(read_html(.x), ".Price")))
+  price <-stack(price)$values
+  
+  price_per_unit <- map(URL_list,  ~ html_text(html_nodes(read_html(.x), "#PPU")))
+  price_per_unit <-stack(price_per_unit)$values
+  
+  suffix <-map(URL_list,  ~ html_text(html_nodes(read_html(.x), ".Suffix")))
+  suffix<-stack(suffix)$values[stack(suffix)$values!=""]
+  
+  if (length(suffix)!=length(product)){suffix<-rep("NA",length(product))}
+  
+  out<-data.frame(Product_ID,
+                  Full_Name,
+                  product,
+                  store,
+                  price,
+                  price_per_unit,
+                  suffix)
+  return(out)
 }
 
 #############Run Scraping Function (Takes a few minutes)###############
 Out<-map(URLs,Scrape_all)
 
+saveRDS(Out, file = paste(Sys.Date(),"out.rds"))
 
 #############binds output into dataframe and adds column for type of product #############
 Out_df <-
@@ -137,15 +161,33 @@ PPU_out$Unit[PPU_out$Unit!="Kg"]<-"Each"
 ########Output results#############################
 TidyPrices <-
   data.frame(
+    Product_ID = Out_tidy$Product_ID,
+    Full_Name = Out_tidy$Full_Name,
     Category = Out_tidy$type,
     Item = Out_tidy$product,
     Retailer = Out_tidy$store,
     Shelf_Price = Out_tidy$price,
     Price_per_unit = PPU_out$Price_per_unit,
     Unit = PPU_out$Unit,
+    Suffix = Out_tidy$suffix,
     Date = Sys.Date()
   )
 
-write.csv(TidyPrices, row.names = FALSE, file = paste(Sys.Date(), "mysupermarket.csv", sep = " "))
+TidyPrices$Product_ID<- gsub("w_74.png","NA",TidyPrices$Product_ID)
+
+TidyPrices%>%
+  group_by(Product_ID)%>%
+  summarise(N = n())%>%
+  arrange(desc(N))%>%
+  filter(N>1,Product_ID!="NA")->duplicates
+
+'%ni%' <- Negate('%in%')
+
+TidyPrices<-filter(TidyPrices,Product_ID %ni% duplicates$Product_ID)
+TidyPrices$Product_ID[TidyPrices$Product_ID=="NA"]<-as.character(TidyPrices$Full_Name)[TidyPrices$Product_ID=="NA"]
+
+
+write.csv(TidyPrices,row.names = FALSE, file = paste(Sys.Date(), "mysupermarket.csv", sep = " "))
+
 
 
