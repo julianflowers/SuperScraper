@@ -222,25 +222,22 @@ Units_out<-rep("1",nrow(TidyPrices))
 Units_out[Units]<-gsub("\\)","",do.call(rbind,Suffix[Units])[,2])
 TidyPrices$Size<-Units_out
 
+
 TidyPrices2<-read_csv(paste(Sys.Date()-1, "mysupermarket.csv"))
 
 TidyPrices%>%
   mutate(Price_Change = NA, Percent_Change = NA)%>%
   rbind(TidyPrices2)%>%
-  select(UID,Category, Item, Retailer, Shelf_Price,Date)%>%
+  select(UID,Category, Shelf_Price,Date)%>%
   spread(key=Date,value=Shelf_Price)%>%
   rename(Price_Today = as.character(Sys.Date()), Price_Yesterday = as.character(Sys.Date()-1))%>%
   mutate(Price_Change = Price_Today-Price_Yesterday, Percent_Change = (Price_Today-Price_Yesterday)/Price_Yesterday)%>%
   filter(!is.na(Price_Today))%>%
   select(UID,Price_Change,Percent_Change)%>%
-  right_join(TidyPrices)%>%
-write.csv(row.names = FALSE, file = paste(Sys.Date(), "mysupermarket.csv", sep = " "))
+  right_join(TidyPrices,by=c("UID"))->TidyPrices
+
+write.csv(TidyPrices,row.names = FALSE, file = paste(Sys.Date(), "mysupermarket.csv", sep = " "))
 
 
-
-
-
-
-Out<-readRDS(paste(Sys.Date(),"out.rds"))
 
 
